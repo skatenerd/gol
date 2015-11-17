@@ -98,8 +98,7 @@ makeWorld = C.newMVar $ S.fromList [Point (-1) 0, Point 0 0, Point 1 0]
 
 makeConnectionList = C.newMVar $ S.empty
 
-pruneConnection connections uniqConnection = C.modifyMVar_ connections (return . removeConnection)
-  where removeConnection connectionList = S.delete uniqConnection connectionList
+pruneConnection connections uniqConnection = C.modifyMVar_ connections (return . (S.delete uniqConnection))
 
 runUserCommand (Just (SetAlive points)) world = C.modifyMVar_ world (return . (bulkInsert points))
 
