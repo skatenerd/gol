@@ -52,16 +52,16 @@ instance Eq UniqConn where
 
 -- TODO: put the threadDelay intervals in variables / reader monad
 --       experiment with putting refs "world" and "connections" mvars into reader
---       get
+--       get config detail from command line
 main :: IO ()
 main = do
   world <- makeWorld
   connections <- makeConnectionList
   _ <- C.forkIO $ broadcastWorld world connections
-  WS.runServer "0.0.0.0" 9160 (myApp connections world)
+  WS.runServer "0.0.0.0" 9160 (acceptConnection connections world)
 
-myApp :: C.MVar ConnectionList -> C.MVar GameState -> WS.ServerApp
-myApp connections gameState pending = do
+acceptConnection :: C.MVar ConnectionList -> C.MVar GameState -> WS.ServerApp
+acceptConnection connections gameState pending = do
   conn <- WS.acceptRequest pending
   rando <- UUID.nextRandom
   let uniqueConnection = UniqConn rando conn
@@ -101,8 +101,7 @@ makeConnectionList = C.newMVar $ S.empty
 pruneConnection connections uniqConnection = C.modifyMVar_ connections (return . removeConnection)
   where removeConnection connectionList = S.delete uniqConnection connectionList
 
-runUserCommand (Just (SetAlive points)) world = do
-  C.modifyMVar_ world (return . (bulkInsert points))
+runUserCommand (Just (SetAlive points)) world = C.modifyMVar_ world (return . (bulkInsert points))
 
 runUserCommand (Just (SetDead points)) world = C.modifyMVar_ world (return .  (bulkDelete points))
 runUserCommand Nothing _ = return ()
