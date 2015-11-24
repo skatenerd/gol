@@ -29,6 +29,7 @@ executable gol-exe
                      , containers
                      , bytestring
                      , uuid
+                     , mtl
                      , aeson
                      , uri-bytestring
                      , websockets

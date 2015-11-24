@@ -15,6 +15,7 @@ import qualified Data.Set as S
 import qualified Data.Map as M
 --import qualified Data.Text.IO as TextIO
 import Control.Monad
+import qualified Control.Monad.Reader as Reader
 import Data.Maybe
 --import Data.Either
 import qualified Network.WebSockets as WS
@@ -26,12 +27,12 @@ import qualified URI.ByteString as URI
 import qualified Data.ByteString.Char8 as Char8
 
 data Point = Point {pX :: Integer, pY :: Integer} deriving (Eq, Ord, Show, Generic)
-data Command = SetAlive [Point] | SetDead [Point] deriving (Eq, Ord, Show, Generic)
+data Command = SetAlive [Point] | SetDead [Point] | Resume | Pause deriving (Eq, Ord, Show, Generic)
 type GameState = S.Set Point
 type ConnectionList = S.Set UniqConn
 data UniqConn = UniqConn { getUniqId :: UUID.UUID, getConnection :: WS.Connection }
 type Universe = C.MVar (M.Map Integer (C.MVar World))
-data World = World { wGameState :: GameState, wConnections :: ConnectionList }
+data World = World { wGameState :: GameState, wConnections :: ConnectionList, wRunning :: Bool }
 
 instance Aeson.ToJSON Point
 instance Aeson.FromJSON Point
@@ -61,7 +62,8 @@ stepState s = S.union survivors births
                                                           Point x y /= cell]
 
 updateWorld :: World -> World
-updateWorld (World state connections) = World (stepState state) connections
+updateWorld (World state connections True) = World (stepState state) connections True
+updateWorld world@(World state connections False) = world
 
 -- TODO: put the threadDelay intervals in variables / reader monad
 --       experiment with putting refs "world" and "connections" mvars into reader
@@ -115,6 +117,7 @@ stepUniverse universe = forever $ do
 
 broadcastWorld :: (C.MVar World) -> IO ()
 broadcastWorld world = do
+  now <- C.readMVar world
   newWorld <- C.modifyMVar world (return . tuplify . updateWorld)
   let connectionsNow = wConnections newWorld
   forM_ connectionsNow (\uniqueConn -> safeSend uniqueConn $ dumps $ wGameState newWorld)
@@ -138,7 +141,7 @@ makeUniverse = C.newMVar M.empty
 
 makeWorldRef = C.newMVar $ World S.empty S.empty
 
-getSeedWorld connection = C.newMVar $ World S.empty S.empty
+getSeedWorld connection = C.newMVar $ World S.empty S.empty True
 
 insertIfAbsent k v m = (withNew, withNew M.! k)
   where withNew = M.insertWith takeExisting k v m
@@ -153,18 +156,27 @@ addConnection worldID connection universe = do
       return withNewWorld)
     newUniverse <- C.readMVar universe
     return (newUniverse M.! worldID) -- unsafe map lookup
-    where insertConnectionToWorld w = C.modifyMVar_ w (\(World g c) -> return $ World g (S.insert connection c))
+    where insertConnectionToWorld w = C.modifyMVar_ w (\(World g c r) -> return $ World g (S.insert connection c) r)
 
 pruneConnection world uniqConnection = C.modifyMVar_ world (return . removeConnection)
-  where removeConnection (World state connections) = World state $ S.delete uniqConnection connections
+  where removeConnection (World state connections r) = World state (S.delete uniqConnection connections) r
 
-runUserCommand (Just (SetAlive points)) world = C.modifyMVar_ world (return . addPoints)
-  where addPoints (World gameState connections) = World (bulkInsert points gameState) connections
+runUserCommand (Just (SetAlive points)) = alterWorld addPoints
+  where addPoints (World gameState connections r) = World (bulkInsert points gameState) connections r
 
-runUserCommand (Just (SetDead points)) world = C.modifyMVar_ world (return .  removePoints)
-  where removePoints (World gameState connections) = World (bulkDelete points gameState) connections
+runUserCommand (Just (SetDead points)) = alterWorld removePoints
+  where removePoints (World gameState connections r) = World (bulkDelete points gameState) connections r
 
-runUserCommand Nothing _ = return ()
+runUserCommand (Just Resume) = alterWorld startWorld
+  where startWorld (World gameState connections _) = World gameState connections True
+
+runUserCommand (Just Pause) = alterWorld stopWorld
+  where stopWorld (World gameState connections _) = World gameState connections False
+
+runUserCommand Nothing  = alterWorld id
+
+alterWorld mutation world = C.modifyMVar_ world (return . mutation)
+
 
 bulkInsert :: (Ord a) => [a] -> S.Set a -> S.Set a
 bulkInsert elements target = foldr S.insert target elements

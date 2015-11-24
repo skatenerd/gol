@@ -13,14 +13,14 @@
     {pX: 0, pY: 0},
     {pX: 1, pY: 0}
   ]});
+  var pause = JSON.stringify({tag: "Pause", contents: []});
+  var resume = JSON.stringify({tag: "Resume", contents: []});
   setTimeout(function() {
     connection.send(revive);
+    connection.send(resume);
   }, 1000)
   setTimeout(function() {
-    connection.send(kill);
-  }, 30000)
-  setTimeout(function() {
-    connection.send(revive);
+    connection.send(pause);
   }, 5000)
 
   secondConnection.onmessage = function(message){
