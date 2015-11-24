@@ -1,5 +1,9 @@
 <script type="text/javascript">
-  var connection =new WebSocket("ws://localhost:9160/?worldID=123");
+  var connection = new WebSocket("ws://localhost:9160/?worldID=123");
+  var secondConnection = new WebSocket("ws://localhost:9160/?worldID=456");
+  connection.onclose = function(e) {
+    console.log(e.code)
+  };
   connection.onmessage = function(message){
     console.log(message.data);
   };
@@ -10,9 +14,16 @@
     {pX: 1, pY: 0}
   ]});
   setTimeout(function() {
+    connection.send(revive);
+  }, 1000)
+  setTimeout(function() {
     connection.send(kill);
-  }, 3000)
+  }, 30000)
   setTimeout(function() {
     connection.send(revive);
-  }, 6000)
+  }, 5000)
+
+  secondConnection.onmessage = function(message){
+    console.log(message.data);
+  };
 </script>
