@@ -12,21 +12,37 @@ import qualified Data.List ()
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Aeson as Aeson
 import qualified Data.Set as S
-import qualified Data.Text.IO as TextIO
+import qualified Data.Map as M
+--import qualified Data.Text.IO as TextIO
 import Control.Monad
+import Data.Maybe
+--import Data.Either
 import qualified Network.WebSockets as WS
 import qualified Control.Concurrent as C-- (MVar, newMVar, modifyMVar_, modifyMVar, readMVar)
 import GHC.Generics
 import Control.Exception as Exc
+import qualified Text.Read as R
+import qualified URI.ByteString as URI
+import qualified Data.ByteString.Char8 as Char8
 
 data Point = Point {pX :: Integer, pY :: Integer} deriving (Eq, Ord, Show, Generic)
 data Command = SetAlive [Point] | SetDead [Point] deriving (Eq, Ord, Show, Generic)
 type GameState = S.Set Point
+type ConnectionList = S.Set UniqConn
+data UniqConn = UniqConn { getUniqId :: UUID.UUID, getConnection :: WS.Connection }
+type Universe = C.MVar (M.Map Integer (C.MVar World))
+data World = World { wGameState :: GameState, wConnections :: ConnectionList }
 
 instance Aeson.ToJSON Point
 instance Aeson.FromJSON Point
 instance Aeson.ToJSON Command
 instance Aeson.FromJSON Command
+
+instance Ord UniqConn where
+  compare = compare `on` getUniqId
+
+instance Eq UniqConn where
+  (==) = (==) `on` getUniqId
 
 updateWorld :: GameState -> GameState
 updateWorld s = S.union survivors births
@@ -41,15 +57,6 @@ updateWorld s = S.union survivors births
                                                           y <- [(pY cell - 1)..(pY cell + 1)],
                                                           Point x y /= cell]
 
-type ConnectionList = S.Set UniqConn
-data UniqConn = UniqConn { getUniqId :: UUID.UUID, getConnection :: WS.Connection }
-
-instance Ord UniqConn where
-  compare = compare `on` getUniqId
-
-instance Eq UniqConn where
-  (==) = (==) `on` getUniqId
-
 -- TODO: put the threadDelay intervals in variables / reader monad
 --       experiment with putting refs "world" and "connections" mvars into reader
 --       get config detail from command line
@@ -60,13 +67,31 @@ main = do
   _ <- C.forkIO $ broadcastWorld world connections
   WS.runServer "0.0.0.0" 9160 (acceptConnection connections world)
 
+getWorldID :: WS.PendingConnection -> Maybe Integer
+getWorldID pending = let getPath = WS.requestPath . WS.pendingRequest
+                         parser = URI.parseRelativeRef URI.laxURIParserOptions
+                         getQueryDict uriStructure = M.fromList $ URI.queryPairs $ URI.rrQuery uriStructure
+                         eitherToMaybe (Left _) = Nothing
+                         eitherToMaybe (Right thing) = Just thing
+                      in do
+                        uriStructure <- eitherToMaybe $ parser (getPath pending)
+                        thedict <- return $ getQueryDict uriStructure
+                        found <- M.lookup "worldID" thedict
+                        R.readMaybe $ Char8.unpack found
+
+makeUniqConn connection = do
+  rando <- UUID.nextRandom
+  return $ UniqConn rando connection
+
 acceptConnection :: C.MVar ConnectionList -> C.MVar GameState -> WS.ServerApp
 acceptConnection connections gameState pending = do
-  conn <- WS.acceptRequest pending
-  rando <- UUID.nextRandom
-  let uniqueConnection = UniqConn rando conn
-  C.modifyMVar_ connections (return . (S.insert uniqueConnection))
-  pollMove conn gameState
+  let worldID = getWorldID pending
+  print worldID
+  when (isJust worldID) $ do
+    conn <- WS.acceptRequest pending
+    uniqueConnection <- makeUniqConn conn
+    C.modifyMVar_ connections (return . (S.insert uniqueConnection))
+    pollMove conn gameState
 
 -- this will blow up when the client disconnects.
 -- results in error messages printing to standard out
@@ -97,6 +122,26 @@ makeWorld :: IO (C.MVar (S.Set Point))
 makeWorld = C.newMVar $ S.fromList [Point (-1) 0, Point 0 0, Point 1 0]
 
 makeConnectionList = C.newMVar $ S.empty
+
+makeUniverse = C.newMVar M.empty
+
+makeWorldRef = C.newMVar $ World S.empty S.empty
+
+getSeedWorld connection = C.newMVar $ World S.empty $ S.empty
+
+insertIfAbsent k v m = (withNew, withNew M.! k)
+  where withNew = M.insertWith takeExisting k v m
+        takeExisting _ already = already
+
+addConnection :: Integer -> UniqConn -> Universe -> IO()
+addConnection worldID connection universe = C.modifyMVar_ universe (\oldUniverse -> do
+  blankWorld <- getSeedWorld connection
+  let (withNewWorld, someWorld) = insertIfAbsent worldID blankWorld oldUniverse
+  insertConnectionToWorld someWorld
+  return withNewWorld)
+  where insertConnectionToWorld w = C.modifyMVar_ w (\foundWorld -> do
+                                                    let (World g c) = foundWorld
+                                                    return $ World g (S.insert connection c))
 
 pruneConnection connections uniqConnection = C.modifyMVar_ connections (return . (S.delete uniqConnection))
 

@@ -30,6 +30,7 @@ executable gol-exe
                      , bytestring
                      , uuid
                      , aeson
+                     , uri-bytestring
                      , websockets
   default-language:    Haskell2010
 
