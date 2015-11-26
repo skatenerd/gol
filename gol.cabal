@@ -28,6 +28,8 @@ executable gol-exe
                      , text
                      , containers
                      , bytestring
+                     , scotty
+                     , blaze-html
                      , uuid
                      , mtl
                      , aeson
