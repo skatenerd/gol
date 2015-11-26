@@ -31,10 +31,6 @@ import qualified Text.Read as R
 import qualified URI.ByteString as URI
 import qualified Data.ByteString.Char8 as Char8
 
-import qualified Text.Blaze.Html5 as B
-import qualified Text.Blaze.Html5.Attributes as BA
-import qualified Text.Blaze.Html.Renderer.Text as BR
-
 import qualified Web.Scotty as Scotty
 
 data Point = Point {pX :: Integer, pY :: Integer} deriving (Eq, Ord, Show, Generic)
@@ -90,11 +86,11 @@ main = do
   _ <- C.forkIO $ WS.runServer "0.0.0.0" 9160 (acceptConnection universe)
   Scotty.scotty 3000 $ do
     Scotty.get "/:world" $ do
-      foo :: Integer <- Scotty.param "world"
+      worldID :: Integer <- Scotty.param "world"
       markup <- Hastache.hastacheFile
         Hastache.defaultConfig
         "app/templates/foo.html"
-        (HastacheC.mkStrContext contextFunction)
+        (HastacheC.mkStrContext (const (Hastache.MuVariable (show worldID))))
       Scotty.html markup
 
 getWorldID :: WS.PendingConnection -> Maybe Integer
@@ -130,7 +126,6 @@ pollMove conn worldref = forever $ do
       maybeCommand :: Maybe Command
       maybeCommand = Aeson.decodeStrict asByteString
   runUserCommand maybeCommand worldref
-  C.threadDelay 100000
 
 stepUniverse :: Universe -> IO ()
 stepUniverse universe = forever $ do
