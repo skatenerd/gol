@@ -3,6 +3,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import qualified Text.Hastache as Hastache
+import qualified Text.Hastache.Context as HastacheC
+
 import qualified Data.Text.Lazy as DTL
 
 import qualified Data.Text.Encoding as TextEncoding
@@ -73,56 +76,9 @@ updateWorld :: World -> World
 updateWorld (World state connections True) = World (stepState state) connections True
 updateWorld world@(World _ _ False) = world
 
-visualizeWorldJS :: String
-visualizeWorldJS = "\
-  \ var canvas = document.getElementById('world');\n\
-  \ canvas.width = 400;\n\
-  \ canvas.height = 400;\n\
-  \ var ctx = canvas.getContext('2d');\n\
-  \ ctx.fillStyle = \"rgb(200,0,0)\";\n\
-  \ var connection = new WebSocket(\"ws://localhost:9160/?worldID=123\");\n\
-  \ connection.onclose = function(e) {\n\
-  \   console.log(e.code)\n\
-  \ };\n\
-  \ connection.onmessage = function(message){\n\
-  \   var maxWidth = canvas.width;\n\
-  \   var maxHeight = canvas.height;\n\
-  \   var cellLength = 20;\n\
-  \   var originX = maxWidth / 2;\n\
-  \   var originY = maxHeight / 2;\n\
-  \   var clear = function(){ ctx.clearRect(0, 0, maxWidth, maxHeight);}\n\
-  \   var drawAliveCell = function(cell) {\n\
-  \       var pX = cell.pX\n\
-  \       var pY = cell.pY\n\
-  \       var cornerX = originX + (pX * cellLength);\n\
-  \       var cornerY = originY + (pY * cellLength);\n\
-  \       ctx.fillRect(cornerX, cornerY, cellLength, cellLength);\n\
-  \   }\n\
-  \   clear();\n\
-  \   var cells = JSON.parse(message.data);\n\
-  \   for (var i = 0; i < cells.length; i++){\n\
-  \       var cell = cells[i];\n\
-  \       drawAliveCell(cell);\n\
-  \   }\n\
-  \   console.log(message.data);\n\
-  \ };\n\
-  \ var kill = JSON.stringify({tag: \"SetDead\", contents: [{pX: 0, pY: 0}]});\n\
-  \ var revive = JSON.stringify({tag: \"SetAlive\", contents: [\n\
-  \   {pX: -1, pY: 0},\n\
-  \   {pX: 0, pY: 0},\n\
-  \   {pX: 1, pY: 0}\n\
-  \ ]});\n\
-  \ var pause = JSON.stringify({tag: \"Pause\", contents: []});\n\
-  \ var resume = JSON.stringify({tag: \"Resume\", contents: []});\n\
-  \ setTimeout(function() {\n\
-  \   connection.send(revive);\n\
-  \   connection.send(resume);\n\
-  \ }, 1000)\n\
-  \ setTimeout(function() {\n\
-  \   connection.send(pause);\n\
-  \ }, 5000)\n\
-\ "
 
+
+contextFunction x = Hastache.MuVariable ("YO" :: String)
 
 -- TODO: put the threadDelay intervals in variables / reader monad
 --       experiment with putting refs "world" and "connections" mvars into reader
@@ -135,17 +91,11 @@ main = do
   Scotty.scotty 3000 $ do
     Scotty.get "/:world" $ do
       foo :: Integer <- Scotty.param "world"
-      Scotty.html $ BR.renderHtml $ B.body $ do
-        B.h1 "HI"
-        B.h3 "YO"
-        (B.canvas B.! BA.id "world") ""
-        (B.script B.! (BA.type_ "text/javascript")) (B.toHtml visualizeWorldJS)
-        B.div $ do
-          B.h1 "ZUP"
-          B.h2 "ZUP"
-        B.h2 "YO"
---      Scotty.html $ BR.renderHtml $ do
---        B.div $ (B.h1 $ B.toHtml ("yolo" :: String))
+      markup <- Hastache.hastacheFile
+        Hastache.defaultConfig
+        "app/templates/foo.html"
+        (HastacheC.mkStrContext contextFunction)
+      Scotty.html markup
 
 getWorldID :: WS.PendingConnection -> Maybe Integer
 getWorldID pending = let getPath = WS.requestPath . WS.pendingRequest

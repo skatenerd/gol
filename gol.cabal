@@ -29,7 +29,7 @@ executable gol-exe
                      , containers
                      , bytestring
                      , scotty
-                     , blaze-html
+                     , hastache
                      , uuid
                      , mtl
                      , aeson
