@@ -126,25 +126,29 @@ pollMove conn worldref = forever $ do
       maybeCommand :: Maybe Command
       maybeCommand = Aeson.decodeStrict asByteString
   runUserCommand maybeCommand worldref
+  when (isJust maybeCommand) (broadcastWorld worldref)
 
 stepUniverse :: Universe -> IO ()
 stepUniverse universe = forever $ do
-  asdf :: (M.Map Integer (C.MVar World)) <- C.readMVar universe
-  forM_ (M.elems asdf) broadcastWorld
+  worlds :: (M.Map Integer (C.MVar World)) <- C.readMVar universe
+  forM_ (M.elems worlds) $ \world -> do
+    C.modifyMVar_ world (return . updateWorld)
+    broadcastWorld world
   C.threadDelay 1000000
+
+tuplify x = (x,x)
 
 broadcastWorld :: (C.MVar World) -> IO ()
 broadcastWorld world = do
-  now <- C.readMVar world
-  newWorld <- C.modifyMVar world (return . tuplify . updateWorld)
-  let connectionsNow = wConnections newWorld
-  forM_ connectionsNow (\uniqueConn -> safeSend uniqueConn $ dumps $ wGameState newWorld)
-  where safeSend uniqConnection message = Exc.catch (WS.sendTextData (getConnection uniqConnection) message) (handleSocketError uniqConnection)
-        handleSocketError :: UniqConn -> WS.ConnectionException -> IO ()
-        handleSocketError uniqConn _ = do
-          pruneConnection world uniqConn
-          return ()
-        tuplify x = (x,x)
+  worldContents <- C.readMVar world
+  let connectionsNow = wConnections worldContents
+  forM_ connectionsNow (\uniqueConn -> safeSend uniqueConn $ dumps $ wGameState worldContents)
+    where
+      safeSend uniqConnection message = Exc.catch (WS.sendTextData (getConnection uniqConnection) message) (handleSocketError uniqConnection)
+      handleSocketError :: UniqConn -> WS.ConnectionException -> IO ()
+      handleSocketError uniqConn _ = do
+        pruneConnection world uniqConn
+        return ()
 
 dumps :: (Aeson.ToJSON t) => t -> LBS.ByteString
 dumps = Aeson.encode . Aeson.toJSON
