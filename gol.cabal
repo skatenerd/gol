@@ -21,6 +21,7 @@ library
                      , containers
                      , bytestring
                      , scotty
+                     , wai-middleware-static
                      , hastache
                      , uuid
                      , mtl
@@ -38,6 +39,7 @@ executable gol-exe
                      , text
                      , containers
                      , bytestring
+                     , wai-middleware-static
                      , scotty
                      , hastache
                      , uuid

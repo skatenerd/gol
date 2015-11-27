@@ -29,6 +29,7 @@ import qualified URI.ByteString as URI
 import qualified Data.ByteString.Char8 as Char8
 
 import qualified Web.Scotty as Scotty
+import qualified Network.Wai.Middleware.Static as Static
 
 data Point = Point {pX :: Integer, pY :: Integer} deriving (Eq, Ord, Show, Generic)
 data Command = SetAlive [Point] | SetDead [Point] | Resume | Pause deriving (Eq, Ord, Show, Generic)
@@ -78,13 +79,15 @@ main = do
   universe <- makeUniverse
   _ <- C.forkIO $ stepUniverse universe
   _ <- C.forkIO $ WS.runServer "0.0.0.0" 9160 (acceptConnection universe)
-  Scotty.scotty 3000 $ Scotty.get "/:world" $ do
-      worldID :: Integer <- Scotty.param "world"
-      markup <- Hastache.hastacheFile
-        Hastache.defaultConfig
-        "app/templates/foo.html"
-        (HastacheC.mkStrContext (const (Hastache.MuVariable (show worldID))))
-      Scotty.html markup
+  Scotty.scotty 3000 $ do
+      Scotty.middleware $ Static.staticPolicy (Static.noDots Static.>-> Static.addBase "static")
+      Scotty.get "/:world" $ do
+        worldID :: Integer <- Scotty.param "world"
+        markup <- Hastache.hastacheFile
+          Hastache.defaultConfig
+          "app/templates/main.html"
+          (HastacheC.mkStrContext (const (Hastache.MuVariable (show worldID))))
+        Scotty.html markup
 
 getWorldID :: WS.PendingConnection -> Maybe Integer
 getWorldID pending = do
