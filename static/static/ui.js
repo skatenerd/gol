@@ -171,10 +171,10 @@ var init = function(worldID) {
 
   var updateLocalCells = function(cells) {
     localState.stomp(cells);
-    drawing.refresh(cells);
+    drawing.refresh(localState.aliveCells);
   }
 
-  var updateRunning = function(running) {
+  var updateIsRunning = function(running) {
     localState.running = running;
     $("#status-running").toggle(localState.running);
     $("#status-stopped").toggle(!localState.running);
@@ -182,12 +182,28 @@ var init = function(worldID) {
 
   connection.onmessage = function(message){
     var parsed = JSON.parse(message.data);
-    updateLocalCells(parsed.uAliveCells);
-    updateRunning(parsed.uRunning);
-    if (localState.running) {
+    var cells = $.map(parsed.uAliveCells, function(c){
+      return new Cell(c.pX, c.pY);
+    });
+    var isChange = cellCollectionIsChange(cells);
+    updateLocalCells(cells);
+    updateIsRunning(parsed.uRunning);
+    if (isChange) {
       audio.play()
     }
   };
+
+  var cellCollectionIsChange = function(newCells) {
+    if (newCells.length != localState.aliveCells.length) {
+      return true;
+    }
+    for (var i=0; i<newCells.length; i++) {
+      if (!localState.cellAlive(newCells[i])){
+        return true;
+      }
+    }
+    return false;
+  }
 
   var clear = function() {
     net.setDead(localState.aliveCells);
