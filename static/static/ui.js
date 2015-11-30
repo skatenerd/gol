@@ -8,6 +8,7 @@ var Cell = function(pX, pY) {
 }
 var LocalState = function() {
   this.aliveCells = [];
+  this.running = undefined;
   this.cellAlive = function(candidate) {
     var finds = $.grep(this.aliveCells, function(cell) {
       return candidate.equals(cell);
@@ -143,6 +144,7 @@ var init = function(worldID) {
   var canvas = document.getElementById('world');
   var drawing = new Drawing(canvas);
   var translations = new Translations();
+  var audio = new Audio('/static/tick.mp3');
   connection = new WebSocket("ws://localhost:9160/?worldID=" + worldID);
   var net = new Net(connection);
   connection.onclose = function(e) {
@@ -167,19 +169,29 @@ var init = function(worldID) {
     toggleCell(clickedCell);
   });
 
-  var updateLocal = function(cells) {
+  var updateLocalCells = function(cells) {
     localState.stomp(cells);
     drawing.refresh(cells);
   }
 
+  var updateRunning = function(running) {
+    localState.running = running;
+    $("#status-running").toggle(localState.running);
+    $("#status-stopped").toggle(!localState.running);
+  }
+
   connection.onmessage = function(message){
-    var cells = JSON.parse(message.data);
-    updateLocal(cells);
+    var parsed = JSON.parse(message.data);
+    updateLocalCells(parsed.uAliveCells);
+    updateRunning(parsed.uRunning);
+    if (localState.running) {
+      audio.play()
+    }
   };
 
   var clear = function() {
     net.setDead(localState.aliveCells);
-    updateLocal([]);
+    updateLocalCells([]);
   }
 
   $("#pause").on('click', function() {
@@ -194,7 +206,7 @@ var init = function(worldID) {
     net.withSavedGame($("#restore_name").val(), function(cells){
       clear();
       net.setAlive(cells);
-      updateLocal(cells);
+      updateLocalCells(cells);
     });
   });
 

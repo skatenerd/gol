@@ -41,9 +41,12 @@ type ConnectionList = S.Set UniqConn
 data UniqConn = UniqConn { getUniqId :: UUID.UUID, getConnection :: WS.Connection }
 type Universe = C.MVar (M.Map Integer (C.MVar World))
 data World = World { wGameState :: GameState, wConnections :: ConnectionList, wRunning :: Bool }
+data UpdateMessage = UpdateMessage { uAliveCells :: GameState, uRunning :: Bool } deriving (Eq, Show, Generic)
 
 instance Aeson.ToJSON Command
 instance Aeson.FromJSON Command
+instance Aeson.ToJSON UpdateMessage
+instance Aeson.FromJSON UpdateMessage
 
 instance Show UniqConn where
   show c = show (getUniqId c)
@@ -151,7 +154,9 @@ broadcastWorld :: C.MVar World -> IO ()
 broadcastWorld world = do
   worldContents <- C.readMVar world
   let connectionsNow = wConnections worldContents
-  forM_ connectionsNow (\uniqueConn -> safeSend uniqueConn $ dumps $ wGameState worldContents)
+      toBroadcast = makeBroadcast worldContents
+      makeBroadcast w = UpdateMessage {uAliveCells = wGameState w, uRunning = wRunning w}
+  forM_ connectionsNow (\uniqueConn -> safeSend uniqueConn $ dumps toBroadcast)
     where
       safeSend uniqConnection message = Exc.catch (WS.sendTextData (getConnection uniqConnection) message) (handleSocketError uniqConnection)
       handleSocketError :: UniqConn -> WS.ConnectionException -> IO ()

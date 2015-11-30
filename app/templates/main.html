@@ -7,6 +7,8 @@ $(function(){init({{worldID}});});
 </head>
 <body>
 <h1> Currently Viewing World #{{worldID}}</h1>
+<h3 id="status-running" style="background-color: green; display: none"><font color="yellow">RUNNING</font></h3>
+<h3 id="status-stopped" style="background-color: red; display: none"><font color="yellow">PAUSED</font></h3>
 <canvas id="world"></canvas>
 <button id="pause">PAUSE</button>
 <button id="resume">RESUME</button>
