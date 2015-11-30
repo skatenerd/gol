@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
   build-depends:       base >= 4.7 && < 5
+                     , monad-logger
                      , text
                      , containers
                      , bytestring
@@ -28,6 +29,12 @@ library
                      , aeson
                      , uri-bytestring
                      , websockets
+                     , esqueleto
+                     , persistent
+                     , persistent-postgresql
+                     , persistent-template
+                     , transformers
+                     , resourcet
   default-language:    Haskell2010
 
 executable gol-exe
@@ -35,6 +42,7 @@ executable gol-exe
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:       base
+                     , monad-logger
                      , gol
                      , text
                      , containers
@@ -47,6 +55,12 @@ executable gol-exe
                      , aeson
                      , uri-bytestring
                      , websockets
+                     , esqueleto
+                     , persistent
+                     , persistent-postgresql
+                     , persistent-template
+                     , transformers
+                     , resourcet
   default-language:    Haskell2010
 
 test-suite gol-test

@@ -127,6 +127,15 @@ var Net = function(connection) {
     var message = {tag: "Resume", contents: []};
     connection.send(JSON.stringify(message));
   }
+  this.withSavedGame = function(name, callback) {
+    $.get('/worlds/'+name, function(stuff) {
+      callback(stuff);
+      console.log(stuff);
+    });
+  }
+  this.saveGame = function(name, cells) {
+    $.post('/worlds/'+name, JSON.stringify(cells))
+  }
 }
 
 var init = function(worldID) {
@@ -158,17 +167,43 @@ var init = function(worldID) {
     toggleCell(clickedCell);
   });
 
-  connection.onmessage = function(message){
-    var cells = JSON.parse(message.data);
+  var updateLocal = function(cells) {
     localState.stomp(cells);
     drawing.refresh(cells);
+  }
+
+  connection.onmessage = function(message){
+    var cells = JSON.parse(message.data);
+    updateLocal(cells);
   };
+
+  var clear = function() {
+    net.setDead(localState.aliveCells);
+    updateLocal([]);
+  }
 
   $("#pause").on('click', function() {
     net.pause()
   });
+
   $("#resume").on('click', function() {
     net.resume()
+  });
+
+  $("#restore_button").on('click', function() {
+    net.withSavedGame($("#restore_name").val(), function(cells){
+      clear();
+      net.setAlive(cells);
+      updateLocal(cells);
+    });
+  });
+
+  $("#clear_button").on('click', function() {
+    clear();
+  });
+
+  $("#save_button").on('click', function() {
+    net.saveGame($("#save_name").val(), localState.aliveCells);
   });
 }
 

@@ -3,6 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Types
+
 import qualified Text.Hastache as Hastache
 import qualified Text.Hastache.Context as HastacheC
 
@@ -31,16 +33,15 @@ import qualified Data.ByteString.Char8 as Char8
 import qualified Web.Scotty as Scotty
 import qualified Network.Wai.Middleware.Static as Static
 
-data Point = Point {pX :: Integer, pY :: Integer} deriving (Eq, Ord, Show, Generic)
+import qualified Repository as Repository
+import Control.Monad.IO.Class
+
 data Command = SetAlive [Point] | SetDead [Point] | Resume | Pause deriving (Eq, Ord, Show, Generic)
-type GameState = S.Set Point
 type ConnectionList = S.Set UniqConn
 data UniqConn = UniqConn { getUniqId :: UUID.UUID, getConnection :: WS.Connection }
 type Universe = C.MVar (M.Map Integer (C.MVar World))
 data World = World { wGameState :: GameState, wConnections :: ConnectionList, wRunning :: Bool }
 
-instance Aeson.ToJSON Point
-instance Aeson.FromJSON Point
 instance Aeson.ToJSON Command
 instance Aeson.FromJSON Command
 
@@ -88,6 +89,15 @@ main = do
           "app/templates/main.html"
           (HastacheC.mkStrContext (const (Hastache.MuVariable (show worldID))))
         Scotty.html markup
+      Scotty.get "/worlds/:worldName" $ do
+        worldName :: String <- Scotty.param "worldName"
+        found <- liftIO $ Repository.fetchGame worldName
+        Scotty.json found
+      Scotty.post "/worlds/:worldName" $ do
+        worldName :: String <- Scotty.param "worldName"
+        cells :: [Point] <- Scotty.jsonData
+        liftIO $ Repository.saveGame (S.fromList cells) worldName
+        Scotty.json cells
 
 getWorldID :: WS.PendingConnection -> Maybe Integer
 getWorldID pending = do
