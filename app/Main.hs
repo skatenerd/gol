@@ -70,10 +70,29 @@ stepState s = S.union survivors births
                                                           y <- [(pY cell - 1)..(pY cell + 1)],
                                                           Point x y /= cell]
 
+cull :: S.Set Point -> S.Set Point
+cull = S.filter inBounds
+  where inBounds p = (inRange (pX p) minX maxX) && (inRange (pY p) minY maxY)
+        inRange candidate low high = (candidate >= low) && (candidate <= high)
+
 updateWorld :: World -> World
-updateWorld (World state connections True) = World (stepState state) connections True
+updateWorld (World state connections True) = World ((cull . stepState) state) connections True
 updateWorld world@(World _ _ False) = world
 
+cellBuffer :: Integer
+cellBuffer = 3
+visibleCellsWide :: Integer
+visibleCellsWide = 25
+visibleCellsHigh :: Integer
+visibleCellsHigh = 25
+maxX :: Integer
+maxX = visibleCellsWide + cellBuffer
+minX :: Integer
+minX = 0 - cellBuffer
+maxY :: Integer
+maxY = visibleCellsHigh + cellBuffer
+minY :: Integer
+minY = 0 - cellBuffer
 
 -- TODO: put the threadDelay intervals in variables / reader monad
 --       experiment with putting refs "world" and "connections" mvars into reader
@@ -87,10 +106,14 @@ main = do
       Scotty.middleware $ Static.staticPolicy (Static.noDots Static.>-> Static.addBase "static")
       Scotty.get "/:world" $ do
         worldID :: Integer <- Scotty.param "world"
+        let renderContext "worldID" = Hastache.MuVariable $ show worldID
+            renderContext "cellsWidth" = Hastache.MuVariable $ show visibleCellsWide
+            renderContext "cellsHeight" = Hastache.MuVariable $ show visibleCellsHigh
+            renderContext _ = Hastache.MuVariable ("" :: String)
         markup <- Hastache.hastacheFile
           Hastache.defaultConfig
           "app/templates/main.html"
-          (HastacheC.mkStrContext (const (Hastache.MuVariable (show worldID))))
+          (HastacheC.mkStrContext renderContext)
         Scotty.html markup
       Scotty.get "/worlds/:worldName" $ do
         worldName :: String <- Scotty.param "worldName"
@@ -180,7 +203,7 @@ makeWorldRef :: IO (C.MVar (Bool -> World))
 makeWorldRef = C.newMVar $ World S.empty S.empty
 
 getSeedWorld :: IO (C.MVar World)
-getSeedWorld = C.newMVar $ World S.empty S.empty True
+getSeedWorld = C.newMVar $ World S.empty S.empty False
 
 insertIfAbsent :: Ord k => k -> t -> M.Map k t -> (M.Map k t, t)
 insertIfAbsent k v m = (withNew, withNew M.! k)

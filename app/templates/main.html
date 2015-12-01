@@ -2,19 +2,24 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 <script src="/static/ui.js"></script>
 <script type="text/javascript">
-$(function(){init({{worldID}});});
+$(function(){init({{worldID}}, {{cellsWidth}}, {{cellsHeight}});
+});
 </script>
 </head>
 <body>
 <h1> Currently Viewing World #{{worldID}}</h1>
 <h3 id="status-running" style="background-color: green; display: none"><font color="yellow">RUNNING</font></h3>
 <h3 id="status-stopped" style="background-color: red; display: none"><font color="yellow">PAUSED</font></h3>
-<canvas id="world"></canvas>
-<button id="pause">PAUSE</button>
-<button id="resume">RESUME</button>
+<div>
+  <button id="pause">PAUSE</button>
+</div>
+<div>
+  <button id="resume">RESUME</button>
+</div>
 <div>
   <button id="clear_button">CLEAR</button>
 </div>
+<canvas id="world"></canvas>
 <div>
   <input type="text" id="save_name" placeholder="save state"></input>
   <button id="save_button">SAVEIT</button>

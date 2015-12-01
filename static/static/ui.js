@@ -35,8 +35,8 @@ var LocalState = function() {
   }
 }
 
-var Translations = function() {
-  var cellLength = Config.cellLength;
+var Translations = function(config) {
+  var cellLength = config.cellLength;
 
   var cellForCoordinates = function(x, y) {
     return new Cell(Math.floor(x / cellLength), Math.floor(y / cellLength));
@@ -56,22 +56,22 @@ var Translations = function() {
   }
 }
 
-var Config = {
-  canvasWidth: 400,
-  canvasHeight: 400,
-  cellLength: 20
+var Config = function(gridWidth, gridHeight) {
+  this.cellLength = 20;
+  this.canvasWidth = this.cellLength * gridWidth;
+  this.canvasHeight = this.cellLength * gridHeight;
 };
 
-var Drawing = function(canvas) {
-  canvas.width = Config.canvasWidth;
-  canvas.height = Config.canvasHeight;
+var Drawing = function(canvas, config) {
+  canvas.width = config.canvasWidth;
+  canvas.height = config.canvasHeight;
   var ctx = canvas.getContext('2d');
   ctx.fillStyle = "rgb(200,0,0)";
-  var translations = new Translations();
+  var translations = new Translations(config);
 
   var drawAliveCell = function(cell) {
     var cornerLocation = translations.coordinatesForCell(cell);
-    ctx.fillRect(cornerLocation.xPixels, cornerLocation.yPixels, Config.cellLength, Config.cellLength);
+    ctx.fillRect(cornerLocation.xPixels, cornerLocation.yPixels, config.cellLength, config.cellLength);
   }
 
   var drawVerticalLine = function(x) {
@@ -89,11 +89,11 @@ var Drawing = function(canvas) {
   }
 
   var drawGrid = function() {
-    for(var xPixels = 0; xPixels <= canvas.width; xPixels += Config.cellLength) {
+    for(var xPixels = 0; xPixels <= config.canvasWidth; xPixels += config.cellLength) {
       drawVerticalLine(xPixels);
     }
 
-    for(var yPixels = 0; yPixels <= canvas.height; yPixels += Config.cellLength) {
+    for(var yPixels = 0; yPixels <= config.canvasHeight; yPixels += config.cellLength) {
       drawHorizontalLine(yPixels);
     }
   }
@@ -139,12 +139,15 @@ var Net = function(connection) {
   }
 }
 
-var init = function(worldID) {
+var init = function(worldID, gridWidth, gridHeight) {
+  var config = new Config(gridWidth, gridHeight);
   var localState = new LocalState();
   var canvas = document.getElementById('world');
-  var drawing = new Drawing(canvas);
-  var translations = new Translations();
-  var audio = new Audio('/static/tick.mp3');
+  var drawing = new Drawing(canvas, config);
+  var translations = new Translations(config);
+  var tick = new Audio('http://soundbible.com/grab.php?id=2044&type=mp3');
+  var turnOnSound = new Audio('http://soundbible.com/grab.php?id=1821&type=mp3');
+  var turnOffSound = new Audio('http://soundbible.com/grab.php?id=1610&type=mp3');
   connection = new WebSocket("ws://localhost:9160/?worldID=" + worldID);
   var net = new Net(connection);
   connection.onclose = function(e) {
@@ -175,9 +178,20 @@ var init = function(worldID) {
   }
 
   var updateIsRunning = function(running) {
+    var wasRunning = localState.running;
     localState.running = running;
+    var turnsOn = localState.running && !wasRunning;
+    var turnsOff = !localState.running && wasRunning;
+    if (turnsOn) {
+      turnOnSound.play()
+    }
+    if (turnsOff) {
+      turnOffSound.play()
+    }
     $("#status-running").toggle(localState.running);
     $("#status-stopped").toggle(!localState.running);
+    $("#pause").toggle(localState.running);
+    $("#resume").toggle(!localState.running);
   }
 
   connection.onmessage = function(message){
@@ -189,7 +203,7 @@ var init = function(worldID) {
     updateLocalCells(cells);
     updateIsRunning(parsed.uRunning);
     if (isChange) {
-      audio.play()
+      tick.play()
     }
   };
 
