@@ -54,40 +54,34 @@ $(function(){
 </script>
 </head>
 <body>
-<h1> Currently Viewing World #{{worldID}}</h1>
-<h3 id="status-running" style="background-color: green; display: none"><font color="yellow">RUNNING</font></h3>
-<h3 id="status-stopped" style="background-color: red; display: none"><font color="yellow">PAUSED</font></h3>
-<div>
-  <button id="pause">PAUSE</button>
-</div>
-<div>
-  <button id="resume">RESUME</button>
-</div>
-<div>
-  <button id="clear_button">CLEAR</button>
-</div>
-<canvas id="world"></canvas>
-<div>
-  <input type="text" id="save_name" placeholder="save state"></input>
-  <button id="save_button">SAVEIT</button>
-</div>
-<div>
-  <input type="text" id="restore_name" placeholder="restore state"></input>
-  <button id="restore_button">GETIT</button>
-</div>
-<div id="otherClients"> </div>
-<video  style="float:left" id="self" width="300" height="200"></video>
-<div style="position:relative;float:left;width:300px">
-    <video id="caller" width="300" height="200"></video>
-</div>
-<div style="clear:both">
-<h2>
-bye
-</h2>
-</div>
+  <h1> Currently Viewing World #{{worldID}}</h1>
+  <div style="float:left; width: 75%">
+    <h3 id="status-running" style="background-color: green; display: none"><font color="yellow">RUNNING</font></h3>
+    <h3 id="status-stopped" style="background-color: red; display: none"><font color="yellow">PAUSED</font></h3>
+    <div>
+      <button id="pause">PAUSE</button>
+    </div>
+    <div>
+      <button id="resume">RESUME</button>
+    </div>
+    <div>
+      <button id="clear_button">CLEAR</button>
+    </div>
+    <div>
+      <input type="text" id="save_name" placeholder="save state"></input>
+      <button id="save_button">SAVEIT</button>
+    </div>
+    <div>
+      <input type="text" id="restore_name" placeholder="restore state"></input>
+      <button id="restore_button">GETIT</button>
+    </div>
+    <canvas id="world"></canvas>
+  </div>
+  <div style="float: right; width:20%">
+    <div id="otherClients"> </div>
+    <video  style="float:left" id="self" width="300" height="200"></video>
+    <div style="position:relative;float:left;width:300px">
+      <video id="caller" width="300" height="200"></video>
+    </div>
+  </div>
 </body>
-
-
-
-
-
