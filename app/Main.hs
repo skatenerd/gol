@@ -82,9 +82,9 @@ updateWorld world@(World _ _ False) = world
 cellBuffer :: Integer
 cellBuffer = 3
 visibleCellsWide :: Integer
-visibleCellsWide = 25
+visibleCellsWide = 40
 visibleCellsHigh :: Integer
-visibleCellsHigh = 25
+visibleCellsHigh = 40
 maxX :: Integer
 maxX = visibleCellsWide + cellBuffer
 minX :: Integer
