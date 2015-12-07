@@ -148,7 +148,7 @@ var init = function(worldID, gridWidth, gridHeight) {
   var tick = new Audio('http://soundbible.com/grab.php?id=2044&type=mp3');
   var turnOnSound = new Audio('http://soundbible.com/grab.php?id=1821&type=mp3');
   var turnOffSound = new Audio('http://soundbible.com/grab.php?id=1610&type=mp3');
-  connection = new WebSocket("ws://localhost:9160/?worldID=" + worldID);
+  connection = new WebSocket("ws://" + window.location.hostname + ":9160/?worldID=" + worldID);
   var net = new Net(connection);
   connection.onclose = function(e) {
     console.log(e.code)
