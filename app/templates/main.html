@@ -1,8 +1,55 @@
 <head>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="/static/jquery.js"></script>
 <script src="/static/ui.js"></script>
+
+<link rel="stylesheet" type="text/css" href="/static/easyrtc/easyrtc.css" />
+<script type="text/javascript" src="/static/socketio/socketio.js"></script>
+<script type="text/javascript" src="/static/easyrtc/easyrtc.js"></script>
+
 <script type="text/javascript">
-$(function(){init({{worldID}}, {{cellsWidth}}, {{cellsHeight}});
+$(function(){
+    function my_init() {
+        easyrtc.setSocketUrl(":8080");
+         easyrtc.setRoomOccupantListener( loggedInListener);
+         easyrtc.easyApp("Company_Chat_Line", "self", ["caller"],
+             function(myId) {
+                console.log("My easyrtcid is " + myId);
+             }
+         );
+     }
+     function loggedInListener(roomName, otherPeers) {
+        console.log(otherPeers);
+        console.log("yo");
+        var otherClientDiv = document.getElementById('otherClients');
+        while (otherClientDiv.hasChildNodes()) {
+            otherClientDiv.removeChild(otherClientDiv.lastChild);
+        }
+        for(var i in otherPeers) {
+            var button = document.createElement('button');
+            button.onclick = function(easyrtcid) {
+                return function() {
+                    performCall(easyrtcid);
+                }
+            }(i);
+
+            label = document.createTextNode(i);
+            button.appendChild(label);
+            otherClientDiv.appendChild(button);
+        }
+    }
+    function performCall(easyrtcid) {
+        easyrtc.call(
+           easyrtcid,
+           function(easyrtcid) { console.log("completed call to " + easyrtcid);},
+           function(errorMessage) { console.log("err:" + errorMessage);},
+           function(accepted, bywho) {
+              console.log((accepted?"accepted":"rejected")+ " by " + bywho);
+           }
+       );
+    }
+
+  init({{worldID}}, {{cellsWidth}}, {{cellsHeight}});
+  my_init();
 });
 </script>
 </head>
@@ -28,4 +75,19 @@ $(function(){init({{worldID}}, {{cellsWidth}}, {{cellsHeight}});
   <input type="text" id="restore_name" placeholder="restore state"></input>
   <button id="restore_button">GETIT</button>
 </div>
+<div id="otherClients"> </div>
+<video  style="float:left" id="self" width="300" height="200"></video>
+<div style="position:relative;float:left;width:300px">
+    <video id="caller" width="300" height="200"></video>
+</div>
+<div style="clear:both">
+<h2>
+bye
+</h2>
+</div>
 </body>
+
+
+
+
+
